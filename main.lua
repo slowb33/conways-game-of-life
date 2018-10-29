@@ -1,8 +1,11 @@
 local grid = {}
 
-local gridWidth, gridHeight = 300, 300
+local gridWidth, gridHeight = love.graphics.getDimensions()
 local camScale = 1
 
+local windowWidth, windowHeight = love.graphics.getDimensions()
+gridWidth = gridWidth / 2
+gridHeight = gridHeight / 2
 local states = {
 	DEAD = 0,
 	LIVE = 1,
@@ -11,6 +14,8 @@ local states = {
 --[[
 	Only modify below if you know what you are doing!
 --]]
+
+math.randomseed(os.clock())
 
 function genGrid()
 	for x = 1, gridWidth do
@@ -22,10 +27,23 @@ function genGrid()
 end
 
 function getCell(x, y)
-	if grid[x] and grid[x][y] then
-		return grid[x][y]
+	local finalx = x
+	local finaly = y
+	if x < 1 then
+		finalx = gridWidth
 	end
-	return {x = x, y = y, state = 0}
+	if y < 1 then
+		finaly = gridHeight
+	end
+	if x > gridWidth then
+		finalx = 1
+	end
+	if y > gridHeight then
+		finaly = 1
+	end
+	if grid[finalx][finaly] then
+		return grid[finalx][finaly]
+	end
 end
 
 function countNeighbors(cell)
@@ -76,16 +94,15 @@ function love.update()
 end
 
 function love.draw()
+	love.graphics.setBackgroundColor(0,0,0)
 	love.graphics.scale(camScale)
 	for x = 1, #grid do
 		for y = 1, #grid[x] do
 			local cell = getCell(x, y)
 			if cell.state == states.LIVE then
 				love.graphics.setColor(1,1,1)
-			else
-				love.graphics.setColor(0,0,0)
+				love.graphics.rectangle("fill", x, y, 1, 1)
 			end
-			love.graphics.rectangle("fill", x, y, 1, 1)
 		end
 	end
 end
