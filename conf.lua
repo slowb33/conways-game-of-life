@@ -1,4 +1,5 @@
 function love.conf(t)
-	t.window.width = 800 -- Window Width
-	t.window.height = 800 -- Window Height (both in pixels)
+  t.window.title = "Conway's Game of Life"
+  t.window.width = 500
+  t.window.height = 550
 end
