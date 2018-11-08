@@ -1,108 +1,131 @@
-local grid = {}
+local cells = {}
 
-local gridWidth, gridHeight = love.graphics.getDimensions()
-local camScale = 1
+local gridSize = 500
 
-local windowWidth, windowHeight = love.graphics.getDimensions()
-gridWidth = gridWidth / 2
-gridHeight = gridHeight / 2
-local states = {
-	DEAD = 0,
-	LIVE = 1,
-}
+local scale = 1
+local camx, camy = 0, 0
 
---[[
-	Only modify below if you know what you are doing!
---]]
-
-math.randomseed(os.clock())
+function newCell(x, y, state)
+  local new = {
+    x = x, y = y, state = state,
+  }
+  function new:setState(set)
+    self.state = set
+  end
+  cells[x][y] = new
+  return new
+end
 
 function genGrid()
-	for x = 1, gridWidth do
-		grid[x] = {}
-		for y = 1, gridHeight do
-			grid[x][y] = {x = x, y = y, state = math.random(0,1)}
-		end
-	end
+  for x = 1, gridSize do
+    cells[x] = {}
+    for y = 1, gridSize do
+      newCell(x, y, math.random(0,1))
+    end
+  end
 end
 
 function getCell(x, y)
-	local finalx = x
-	local finaly = y
-	if x < 1 then
-		finalx = gridWidth
-	end
-	if y < 1 then
-		finaly = gridHeight
-	end
-	if x > gridWidth then
-		finalx = 1
-	end
-	if y > gridHeight then
-		finaly = 1
-	end
-	if grid[finalx][finaly] then
-		return grid[finalx][finaly]
-	end
+  local new_x, new_y = x, y
+  if x > gridSize then
+    new_x = 1
+  elseif x < 1 then
+    new_x = gridSize
+  end
+  if y > gridSize then
+    new_y = 1
+  elseif y < 1 then
+    new_y = gridSize
+  end
+  if cells[new_x] and cells[new_x][new_y] then
+    return cells[new_x][new_y]
+  end
 end
 
 function countNeighbors(cell)
-	local count = -cell.state
-	for x = -1, 1 do
-		for y = -1, 1 do
-			local grab = getCell(cell.x + x, cell.y + y)
-			if grab.state == states.LIVE then
-				count = count + 1
-			end
-		end
-	end
-	return count
+  local count = -cell.state
+  for x = -1, 1 do
+    for y = -1, 1 do
+      count = count + getCell(cell.x + x, cell.y + y).state
+    end
+  end
+  return count
+end
+
+function applyChanges(changes)
+  for i = 1, #changes do
+    changes[i].cell:setState(changes[i].set)
+  end
 end
 
 genGrid()
 
+function isDown(list)
+  for i,v in pairs(list) do
+    if v.func(v.arg) then
+      v.run()
+    end
+  end
+end
+
 function love.update()
-	if love.keyboard.isDown("t") then
-		grid = {}
-		genGrid()
-	end
-	if love.keyboard.isDown("i") then
-		camScale = camScale - .1
-	end
-	if love.keyboard.isDown("o") then
-		camScale = camScale + .1
-	end
-	local changes = {}
-	for x = 1, #grid do
-		for y = 1, #grid[x] do
-			local count = countNeighbors(grid[x][y])
-			local cell = getCell(x, y)
-			if cell.state == states.DEAD then
-				if count == 3 then
-					changes[#changes+1] = {x = x, y = y, state = states.LIVE}
-				end
-			elseif count > 3 or count < 2 then
-				changes[#changes+1] = {x = x, y = y, state = states.DEAD}
-			end
-		end
-	end
-	for i = 1, #changes do
-		if grid[changes[i].x] and grid[changes[i].y] then
-			grid[changes[i].x][changes[i].y].state = changes[i].state
-		end
-	end
+  isDown({
+    {func = love.keyboard.isDown, arg = "w", run = function()
+      camy = camy + 1
+    end};
+    {func = love.keyboard.isDown, arg = "a", run = function()
+      camx = camx + 1
+    end};
+    {func = love.keyboard.isDown, arg = "s", run = function()
+      camy = camy - 1
+    end};
+    {func = love.keyboard.isDown, arg = "d", run = function()
+      camx = camx - 1
+    end};
+    {func = love.keyboard.isDown, arg = "i", run = function()
+      scale = scale + .1
+    end};
+    {func = love.keyboard.isDown, arg = "o", run = function()
+      scale = scale - .1
+    end};
+    {func = love.keyboard.isDown, arg = "r", run = function()
+      scale = 1
+      camx = 0
+      camy = 0
+    end};
+    {func = love.keyboard.isDown, arg = "t", run = function()
+      cells = {}
+      genGrid()
+    end};
+  })
+  local changes = {}
+  for x = 1, #cells do
+    for y = 1, #cells[x] do
+      local cell = getCell(x, y)
+      local count = countNeighbors(cell)
+      if cell.state == 1 and (count > 3 or count < 2) then
+        changes[#changes + 1] = {cell = cell, set = 0}
+      elseif cell.state == 0 and count == 3 then
+        changes[#changes + 1] = {cell = cell, set = 1}
+      end
+    end
+  end
+  applyChanges(changes)
 end
 
 function love.draw()
-	love.graphics.setBackgroundColor(0,0,0)
-	love.graphics.scale(camScale)
-	for x = 1, #grid do
-		for y = 1, #grid[x] do
-			local cell = getCell(x, y)
-			if cell.state == states.LIVE then
-				love.graphics.setColor(1,1,1)
-				love.graphics.rectangle("fill", x, y, 1, 1)
-			end
-		end
-	end
+  local live_cells = 0
+  love.graphics.setColor(1,1,1)
+  love.graphics.scale(scale)
+  love.graphics.translate(camx, camy)
+  love.graphics.translate(0, 50)
+  for x = 1, #cells do
+    for y = 1, #cells[x] do
+      if cells[x][y].state == 1 then
+        love.graphics.rectangle("fill", x, y, 1, 1)
+        live_cells = live_cells + 1
+      end
+    end
+  end
+  love.graphics.printf("Living Cells: "..live_cells, -500, -50, 500, "center", 0, 3, 3)
 end
